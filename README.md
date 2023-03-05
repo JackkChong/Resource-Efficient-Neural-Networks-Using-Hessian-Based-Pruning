@@ -9,7 +9,7 @@
 HAP is an advanced structured pruning library written for PyTorch. HAP prunes channels based on their second-order sensitivity. Channels are sorted based on this metric, and only insensitive channels are pruned.
 
 ## CIFAR10
-- prune ratio = 0.770 for ResNet-32 to reach ~10% sparsity. <br />
+- prune ratio = 0.7700 for ResNet-32 to reach ~10% sparsity. <br />
 - prune ratio = 0.80870 (FP32) for ResNet-56 to reach ~10% sparsity. <br />
 - prune ratio = 0.760 for WideResNet-28-8 to reach 10% sparsity. <br />
 
