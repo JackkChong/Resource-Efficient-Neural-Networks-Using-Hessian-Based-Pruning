@@ -41,7 +41,7 @@ HAP is an advanced structured pruning library written for PyTorch. HAP prunes ch
 - **To install HAP** and develop locally:
 
 ```
-git clone https://github.com/ICML2021Submission1958/Hessian-Aware-Pruning-and-Optimal-Neural-Implant
+git clone https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using-Hessian-Based-Pruning
 ```
 
 ## Quick Start
