@@ -15,6 +15,7 @@ from inspect import isfunction
 from torchvision import transforms
 from collections import OrderedDict
 from torch.autograd import Variable
+from torch.cuda.amp import GradScaler
 from pytorch_model_summary import summary
 
 # Globals
@@ -205,7 +206,7 @@ class CIFARResNet(nn.Module):
         x = self.output(x)
 
         return x
-
+    
 
 class ResUnit(nn.Module):
     """
@@ -267,6 +268,7 @@ class ResUnit(nn.Module):
         x = self.body(x)
         x = x + identity
         x = self.activ(x)
+
         return x
 
 
@@ -570,7 +572,7 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters())
 
 
-def compute_model_param_flops(model=None, input_res=224, multiply_adds=True, device=torch.device('cuda:0')):
+def compute_model_param_flops(model=None, input_res=224, multiply_adds=True):
     # noinspection PyUnusedLocal
     def conv_hook(self, input, output):
         batch_size, input_channels, input_height, input_width = input[0].size()
@@ -642,7 +644,7 @@ def compute_model_param_flops(model=None, input_res=224, multiply_adds=True, dev
 
     foo(model)
     input = Variable(torch.rand(1, 3, input_res, input_res), requires_grad=True)
-    input = input.to(device)
+    input = input.cuda()
     model = model.eval()
     _ = model(input)
 
@@ -681,7 +683,7 @@ class LabelSmoothing(nn.Module):
 # =====================================================
 # For training and testing
 # =====================================================
-def train(epoch, net, lr_scheduler, optimizer, criterion, trainloader, device):
+def train(epoch, net, lr_scheduler, optimizer, criterion, trainloader, train_FP16):
     print('\nEpoch: %d' % epoch)
     net.train()
     train_loss = 0
@@ -693,20 +695,24 @@ def train(epoch, net, lr_scheduler, optimizer, criterion, trainloader, device):
     desc = ('[LR=%.5f] Loss: %.3f | Acc: %.3f%% (%d/%d)' % (lr_scheduler.get_lr(optimizer), 0, 0, correct, total))
     prog_bar = tqdm(enumerate(trainloader), total=len(trainloader), desc=desc, leave=True)
 
+    scaler = GradScaler(enabled=train_FP16)
+
     for batch_idx, (inputs, targets) in prog_bar:
         # Get data to CUDA if possible
-        inputs, targets = inputs.to(device), targets.to(device)
+        inputs, targets = inputs.cuda(), targets.cuda()
 
         # forward pass
-        outputs = net(inputs)
-        loss = criterion(outputs, targets)
+        with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=train_FP16):
+            outputs = net(inputs)
+            loss = criterion(outputs, targets)
 
         # backward pass
         optimizer.zero_grad(set_to_none=True)
-        loss.backward()
+        scaler.scale(loss).backward()
 
         # update weights and biases
-        optimizer.step()
+        scaler.step(optimizer)
+        scaler.update()
 
         train_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -721,7 +727,7 @@ def train(epoch, net, lr_scheduler, optimizer, criterion, trainloader, device):
     print(f'Train Acc: {np.around(correct / total * 100, 2)}')
 
 
-def test(epoch, net, lr_scheduler, optimizer, criterion, testloader, device, args):
+def test(epoch, net, lr_scheduler, optimizer, criterion, testloader, test_FP16, log_directory):
     global BEST_ACC
     net.eval()
     test_loss = 0
@@ -731,14 +737,15 @@ def test(epoch, net, lr_scheduler, optimizer, criterion, testloader, device, arg
     desc = ('[LR=%.5f] Loss: %.3f | Acc: %.3f%% (%d/%d)' % (lr_scheduler.get_lr(optimizer), 0, 0, correct, total))
     prog_bar = tqdm(enumerate(testloader), total=len(testloader), desc=desc, leave=True)
 
-    with torch.no_grad():
+    with torch.inference_mode():
         for batch_idx, (inputs, targets) in prog_bar:
             # Get data to CUDA if possible
-            inputs, targets = inputs.to(device), targets.to(device)
+            inputs, targets = inputs.cuda(), targets.cuda()
 
             # forward pass
-            outputs = net(inputs)
-            loss = criterion(outputs, targets)
+            with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=test_FP16):
+                outputs = net(inputs)
+                loss = criterion(outputs, targets)
 
             test_loss += loss.item()
             _, predicted = outputs.max(1)
@@ -765,7 +772,7 @@ def test(epoch, net, lr_scheduler, optimizer, criterion, testloader, device, arg
             'loss': loss,
         }
 
-        torch.save(state, args.log_directory)
+        torch.save(state, log_directory)
         BEST_ACC = acc
 
 
@@ -773,12 +780,11 @@ def main(args):
     global BEST_ACC
 
     cudnn.benchmark = True
-    device = torch.device(args.device)
 
     # Initialize model architecture
     net = get_network(network=args.network, depth=args.depth, dataset=args.dataset, widening_factor=args.widening_factor)
     print(summary(net, torch.zeros(1, 3, 32, 32), show_input=True, show_hierarchical=False))
-    net = net.to(device)
+    net = net.cuda()
 
     # Initialize data loaders
     trainloader, testloader = get_dataloader(dataset=args.dataset, train_batch_size=args.batch_size, test_batch_size=args.batch_size,
@@ -796,9 +802,9 @@ def main(args):
 
     # Calculate FLOPS
     if args.dataset == 'cifar10' or 'cifar100':
-        compute_model_param_flops(net, 32, device=device)
+        compute_model_param_flops(net, 32)
     elif args.dataset == 'imagenet':
-        compute_model_param_flops(net, 224, device=device)
+        compute_model_param_flops(net, 224)
     else:
         raise NotImplementedError
 
@@ -806,7 +812,7 @@ def main(args):
     start_epoch = 0
     if args.resume:
         print('==> Resuming from checkpoint...\n')
-        checkpoint = torch.load(f'{args.resume}', map_location=device)
+        checkpoint = torch.load(f'{args.resume}', map_location=args.device)
         net.load_state_dict(checkpoint['net'])
         optimizer.load_state_dict(checkpoint['optimizer'])
         BEST_ACC = checkpoint['acc']
@@ -816,8 +822,8 @@ def main(args):
 
     # Iterate over epochs
     for epoch in range(start_epoch, args.epochs):
-        train(epoch, net, lr_scheduler, optimizer, criterion, trainloader, device)
-        test(epoch, net, lr_scheduler, optimizer, criterion, testloader, device, args)
+        train(epoch, net, lr_scheduler, optimizer, criterion, trainloader, args.train_FP16)
+        test(epoch, net, lr_scheduler, optimizer, criterion, testloader, args.test_FP16, args.log_directory)
 
     # Print model size and best accuracy
     print("%.2f MB" % (os.path.getsize(args.log_directory) / 1e6))
@@ -830,10 +836,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', default="cifar10", type=str)
     parser.add_argument('--network', default="resnet", type=str)
-    parser.add_argument('--depth', default=56, type=int)
+    parser.add_argument('--depth', default=32, type=int)
     parser.add_argument('--widening_factor', default=1, type=int)
 
-    parser.add_argument('--epochs', default=200, type=int)
+    parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--learning_rate', default=0.05, type=float)
     parser.add_argument('--weight_decay', default=0.001, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
@@ -841,12 +847,15 @@ if __name__ == "__main__":
     parser.add_argument('--nesterov', default=True, type=bool)
     parser.add_argument('--smoothing', default=0.0, type=float)
 
-    parser.add_argument('--log_directory', default="cifar10_result/resnet_56_best_1.pth.tar", type=str)
+    parser.add_argument('--train_FP16', default=True, type=bool)
+    parser.add_argument('--test_FP16', default=True, type=bool)
+
+    parser.add_argument('--log_directory', default="cifar10_result/resnet_32_best.pth.tar", type=str)
     parser.add_argument('--resume', '-r', default=None, type=str)
 
     parser.add_argument('--num_workers', default=1, type=int)
     parser.add_argument('--device', default="cuda:0", type=str)
-
+    
     args = parser.parse_args()
 
     main(args)

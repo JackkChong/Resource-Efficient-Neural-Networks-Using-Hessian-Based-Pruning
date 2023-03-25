@@ -1,48 +1,19 @@
-<!-- <p align="center">
-  <img src="imgs/neural_implant.png" width="800">
-  <br />
-  <br />
-</p> -->
-
 # Resource Efficient Neural Networks through Hessian Based Pruning
 
 HAP is an advanced structured pruning library written for PyTorch. HAP prunes channels based on their second-order sensitivity. Channels are sorted based on this metric, and only insensitive channels are pruned.
 
-## CIFAR10
-- prune ratio = 0.7700 for ResNet-32 to reach ~10% sparsity. <br />
-- prune ratio = 0.80870 (FP32) for ResNet-56 to reach ~10% sparsity. <br />
-- prune ratio = 0.760 for WideResNet-28-8 to reach 10% sparsity. <br />
-
-## CIFAR100
-- prune ratio = 0.780 for ResNet-32 to reach ~10% sparsity. <br />
-- prune ratio = 0.81239 (FP16) and 0.825 (FP32) for ResNet-56 to reach ~10% sparsity. <br />
-- prune ratio = 0.780 for WideResNet-28-8 to reach ~10% sparsity. <br />
 
 ## Installation using Anaconda
 
-- Create a new environment for this project.
+- Create and import the conda environment
    ```
-   conda create --name HAP_env
-   ```
-- Activate the new environment.
-   ```
-   conda activate HAP_env
-   ```
-- Install Pytorch (https://pytorch.org/get-started/locally/#start-locally)
-   ```
-   conda install pytorch torchvision torchaudio pytorch-cuda=11.7 -c pytorch -c nvidia
-   ```
-- Install the following additional dependencies
-   ```
-   conda install -c conda-forge tqdm
-   conda install -c conda-forge pytorch-model-summary
-   conda install -c conda-forge progress
-   ```
+   conda env create -n HAP_env --file environment.yml
+
 - **To install HAP** and develop locally:
 
-```
-git clone https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using-Hessian-Based-Pruning
-```
+   ```
+   git clone https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using-Hessian-Based-Pruning
+   ```
 
 ## Quick Start
 
@@ -61,17 +32,12 @@ git clone https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using
    ```
 
    
-
-
-
 ## Related Work
 
 - [Hessian-Aware Pruning and Optimal Neural Implant](https://arxiv.org/abs/2101.08940)
 
 
 
-
-
 ## License
 
-HAP is released under the [MIT license](https://github.com/ICML2021Submission1958/Hessian-Aware-Pruning-and-Optimal-Neural-Implant/blob/main/LICENSE).
+This framework is released under the [MIT license].

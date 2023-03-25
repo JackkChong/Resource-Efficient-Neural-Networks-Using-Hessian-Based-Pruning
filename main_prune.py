@@ -31,21 +31,21 @@ start_time = 0.0
 # =====================================================
 # For timing utilities
 # =====================================================
-def start_timer(device):
+def start_timer():
     global start_time
     gc.collect()
     torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats(device)
-    torch.cuda.synchronize(device)
+    torch.cuda.reset_peak_memory_stats()
+    torch.cuda.synchronize()
     start_time = time.time()
 
 
-def end_timer_and_print(local_msg, device):
-    torch.cuda.synchronize(device)
+def end_timer_and_print(local_msg):
+    torch.cuda.synchronize()
     end_time = time.time()
     print("\n" + local_msg)
     print("Total execution time = {:.3f} sec".format(end_time - start_time))
-    print("Max memory used by tensors = %.5f gigabytes" % (torch.cuda.max_memory_allocated(device)/1e9))
+    print("Max memory used by tensors = %.5f gigabytes" % (torch.cuda.max_memory_allocated()/1e9))
     print(torch.cuda.get_device_name())
 
 
@@ -216,8 +216,7 @@ class CIFARResNet(nn.Module):
                  init_block_channels,
                  in_channels=3,
                  in_size=(32, 32),
-                 num_classes=10,
-                 device=torch.device('cuda:0')):
+                 num_classes=10):
 
         super(CIFARResNet, self).__init__()
         self.in_size = in_size
@@ -243,8 +242,7 @@ class CIFARResNet(nn.Module):
                 stage.add_module("unit{}".format(j + 1), ResUnit(
                     in_channels=in_channels,
                     out_channels=out_channels,
-                    stride=stride,
-                    device=device))
+                    stride=stride))
                 in_channels = out_channels
 
             self.features.add_module("stage{}".format(i + 1), stage)
@@ -291,7 +289,6 @@ class ResUnit(nn.Module):
                  in_channels,
                  out_channels,
                  stride,
-                 device,
                  bias=False,
                  use_bn=True):
 
@@ -321,7 +318,6 @@ class ResUnit(nn.Module):
         self.activ = nn.ReLU(inplace=True)
 
         self.speed_tensor = None
-        self.speed_tensor_device = device
         self.create_flag = True
         self.speed_tensor_indices = [[], []]
         self.residual_indices = []
@@ -381,7 +377,7 @@ class ResUnit(nn.Module):
                     elif idx in indices[1]:
                         self.residual_indices.append(i)
 
-                self.speed_tensor = torch.zeros(x.size(0), n_c, identity.size(2), identity.size(3)).to(self.speed_tensor_device)
+                self.speed_tensor = torch.zeros(x.size(0), n_c, identity.size(2), identity.size(3)).cuda()
 
             # Perform the addition between output and residual
             tmp_tensor = self.speed_tensor[:x.size(0), :, :, :] + 0.  # +0 is used for preventing copy issue
@@ -552,7 +548,7 @@ def get_activation_layer(activation):
 # For WideResNet model architecture
 # =====================================================
 class WideResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_classes=10, widening_factor=1, dropRate=0.3, device=torch.device("cuda:0")):
+    def __init__(self, block, num_blocks, num_classes=10, widening_factor=1, dropRate=0.3):
         super(WideResNet, self).__init__()
 
         _outputs = [16, 16 * widening_factor, 32 * widening_factor, 64 * widening_factor]
@@ -560,19 +556,19 @@ class WideResNet(nn.Module):
         self.in_planes = _outputs[0]
 
         self.conv1 = nn.Conv2d(3, _outputs[0], kernel_size=3, stride=1, padding=1, bias=False)
-        self.layer1 = self._make_layer(block, _outputs[1], num_blocks[0], dropRate, stride=1, device=device)
-        self.layer2 = self._make_layer(block, _outputs[2], num_blocks[1], dropRate, stride=2, device=device)
-        self.layer3 = self._make_layer(block, _outputs[3], num_blocks[2], dropRate, stride=2, device=device)
+        self.layer1 = self._make_layer(block, _outputs[1], num_blocks[0], dropRate, stride=1)
+        self.layer2 = self._make_layer(block, _outputs[2], num_blocks[1], dropRate, stride=2)
+        self.layer3 = self._make_layer(block, _outputs[3], num_blocks[2], dropRate, stride=2)
         self.bn1 = nn.BatchNorm2d(_outputs[3], affine=AFFINE)
         self.fc = nn.Linear(_outputs[3], num_classes)
 
         self._weights_init()
 
-    def _make_layer(self, block, planes, num_blocks, dropRate, stride, device):
+    def _make_layer(self, block, planes, num_blocks, dropRate, stride):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(block(self.in_planes, planes, stride, dropRate, device))
+            layers.append(block(self.in_planes, planes, stride, dropRate))
             self.in_planes = planes
 
         return nn.Sequential(*layers)
@@ -603,7 +599,7 @@ class WideResNet(nn.Module):
 class BasicBlock_WRN(nn.Module):
     expansion = 1
 
-    def __init__(self, in_planes, out_planes, stride=1, dropRate=0.0, device=torch.device("cuda:0")):
+    def __init__(self, in_planes, out_planes, stride=1, dropRate=0.0):
         super(BasicBlock_WRN, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes, affine=AFFINE)
         self.relu1 = nn.ReLU(inplace=True)
@@ -621,7 +617,6 @@ class BasicBlock_WRN(nn.Module):
         self.in_planes = in_planes
 
         self.speed_tensor = None
-        self.speed_tensor_device = device
         self.create_flag = True
         self.speed_tensor_indices = [[], []]
         self.residual_indices = []
@@ -689,7 +684,7 @@ class BasicBlock_WRN(nn.Module):
                     elif idx in indices[1]:
                         self.residual_indices.append(i)
 
-                self.speed_tensor = torch.zeros(x.size(0), n_c, residual.size(2), residual.size(3)).to(self.speed_tensor_device)
+                self.speed_tensor = torch.zeros(x.size(0), n_c, residual.size(2), residual.size(3)).cuda()
             
             # Perform the addition between output and residual
             tmp_tensor = self.speed_tensor[:x.size(0), :, :, :] + 0.  # +0 is used for preventing copy issue
@@ -706,16 +701,16 @@ class BasicBlock_WRN(nn.Module):
 # =====================================================
 # For network helper functions
 # =====================================================
-def get_network(network, depth, dataset, widening_factor, device):
+def get_network(network, depth, dataset, widening_factor):
     if network == 'wideresnet':
-        return wideresnet(depth=depth, dataset=dataset, widening_factor=widening_factor, device=device)
+        return wideresnet(depth=depth, dataset=dataset, widening_factor=widening_factor)
     elif network == 'resnet':
-        return resnet(depth=depth, dataset=dataset, device=device)
+        return resnet(depth=depth, dataset=dataset)
     else:
         raise NotImplementedError
 
 
-def wideresnet(depth, dataset, widening_factor, device):
+def wideresnet(depth, dataset, widening_factor):
     assert (depth - 4) % 6 == 0, 'Depth must be = 6n + 4, got %d' % depth
 
     if dataset == 'cifar10':
@@ -726,12 +721,12 @@ def wideresnet(depth, dataset, widening_factor, device):
         raise NotImplementedError
 
     n = (depth - 4) // 6
-    model = WideResNet(BasicBlock_WRN, [n] * 3, num_classes, widening_factor, dropRate=0.3, device=device)
+    model = WideResNet(BasicBlock_WRN, [n] * 3, num_classes, widening_factor, dropRate=0.3)
 
     return model
 
 
-def resnet(depth, dataset, device):
+def resnet(depth, dataset):
     assert (depth - 2) % 6 == 0, 'Depth must be = 6n + 2, got %d' % depth
 
     if dataset == 'cifar10':
@@ -746,7 +741,7 @@ def resnet(depth, dataset, device):
     channels = [[ci] * li for (ci, li) in zip(channels_per_layers, layers)]
     init_block_channels = 16
 
-    model = CIFARResNet(channels=channels, init_block_channels=init_block_channels, num_classes=num_classes, device=device)
+    model = CIFARResNet(channels=channels, init_block_channels=init_block_channels, num_classes=num_classes)
 
     return model
 
@@ -764,7 +759,7 @@ def compute_ratio(model, total):
     return ratio, pruned_numel
 
 
-def compute_model_param_flops(model=None, input_res=224, multiply_adds=True, device=torch.device('cuda:0')):
+def compute_model_param_flops(model=None, input_res=224, multiply_adds=True):
     # noinspection PyUnusedLocal
     def conv_hook(self, input, output):
         batch_size, input_channels, input_height, input_width = input[0].size()
@@ -836,7 +831,7 @@ def compute_model_param_flops(model=None, input_res=224, multiply_adds=True, dev
 
     foo(model)
     input = Variable(torch.rand(1, 3, input_res, input_res), requires_grad=True)
-    input = input.to(device)
+    input = input.cuda()
     model = model.eval()
     _ = model(input)
 
@@ -904,10 +899,10 @@ class HessianPruner:
         if self.use_decompose:
             self.known_modules = {'Conv2d'}
 
-    def make_pruned_model(self, hessdata, criterion, n_v, trace_directory, network, trace_FP16, device):
+    def make_pruned_model(self, hessdata, criterion, n_v, trace_directory, network, trace_FP16):
         self._prepare_model()
         self.init_step()
-        self._compute_hessian_importance(hessdata, criterion, n_v, trace_directory, trace_FP16, device)
+        self._compute_hessian_importance(hessdata, criterion, n_v, trace_directory, trace_FP16)
         self._do_prune(self.prune_ratio, network)
         self._build_pruned_model()
 
@@ -928,7 +923,7 @@ class HessianPruner:
     def init_step(self):
         self.steps = 0
 
-    def _compute_hessian_importance(self, hessdata, criterion, n_v, trace_directory, trace_FP16, device):
+    def _compute_hessian_importance(self, hessdata, criterion, n_v, trace_directory, trace_FP16):
         if self.hessian_mode == 'trace':
 
             # Set requires_grad for convolution layers and linear layers only
@@ -946,7 +941,7 @@ class HessianPruner:
                 print(f"Loading trace...\n")
                 results = np.load(trace_dir, allow_pickle=True)
             else:
-                results = get_trace_hut(self.model, hessdata, criterion, n_v, channelwise=True, layerwise=False, trace_FP16=trace_FP16, device=device)
+                results = get_trace_hut(self.model, hessdata, criterion, n_v, channelwise=True, layerwise=False, trace_FP16=trace_FP16)
                 np.save(trace_dir, np.array(results, dtype=object))
 
             for m in self.model.parameters():
@@ -997,12 +992,12 @@ class HessianPruner:
         print("Possible prune ratios:\n")
         for i in range(3):
             next_idx = idx + (i + 1)
-            valid_prune_ratio = next_idx/len(all_importances)
+            valid_prune_ratio = (next_idx+1)/len(all_importances)
             print("%.5f for %d" % (valid_prune_ratio, next_idx))
         print("\n")
         for i in range(3):
             next_idx = idx - (i + 1)
-            valid_prune_ratio = next_idx/len(all_importances)
+            valid_prune_ratio = (next_idx+1)/len(all_importances)
             print("%.5f for %d" % (valid_prune_ratio, next_idx))
         print("\n")
         
@@ -1084,10 +1079,10 @@ class HessianPruner:
     def _clear_buffer(self):
         self.modules = []
 
-    def finetune_model(self, epoch, criterion, trainloader, device, finetune_FP16):
+    def finetune_model(self, epoch, criterion, trainloader, finetune_FP16):
         self.model = self.model.train()
         self.model = self.model.cpu()
-        self.model = self.model.to(device)
+        self.model = self.model.cuda()
         print('\nEpoch: %d' % epoch)
         train_loss = 0
         correct = 0
@@ -1103,7 +1098,7 @@ class HessianPruner:
 
         for batch_idx, (inputs, targets) in prog_bar:
             # Get data to CUDA if possible
-            inputs, targets = inputs.to(device), targets.to(device)
+            inputs, targets = inputs.cuda(), targets.cuda()
 
             # forward pass
             with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=finetune_FP16):
@@ -1131,11 +1126,11 @@ class HessianPruner:
         print(f'Finetune Loss: {train_loss / total}')
         print(f'Finetune Acc: {np.around(correct / total * 100, 2)}')
 
-    def test_model(self, epoch, criterion, testloader, device, test_FP16):
+    def test_model(self, epoch, criterion, testloader, test_FP16, log_directory):
         global BEST_ACC
         self.model = self.model.eval()
         self.model = self.model.cpu()
-        self.model = self.model.to(device)
+        self.model = self.model.cuda()
         test_loss = 0
         correct = 0
         total = 0
@@ -1147,7 +1142,7 @@ class HessianPruner:
         with torch.no_grad():
             for batch_idx, (inputs, targets) in prog_bar:
                 # Get data to CUDA if possible
-                inputs, targets = inputs.to(device), targets.to(device)
+                inputs, targets = inputs.cuda(), targets.cuda()
 
                 # forward pass
                 with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=test_FP16):
@@ -1167,10 +1162,6 @@ class HessianPruner:
         print(f'Test Loss: {test_loss / total}')
         print(f'Test Acc: {np.around(correct / total * 100, 2)}')
 
-        # for k, v in self.model.state_dict().items():
-        #     print(k)
-        #     print(v.shape)
-
         # save checkpoint
         acc = 100. * correct / total
         if acc > BEST_ACC:
@@ -1183,20 +1174,20 @@ class HessianPruner:
                 'loss': loss
             }
 
-            torch.save(state, args.log_directory)
+            torch.save(state, log_directory)
             BEST_ACC = acc
 
-    def speed_model(self, dataloader, device):
-        """ Test the speed of the model over a hessian batch size of 1 """
+    def speed_model(self, dataloader):
+        """ Test the speed of the model """
 
         self.model = self.model.eval()
         self.model = self.model.cpu()
-        self.model = self.model.to(device)
+        self.model = self.model.cuda()
 
         # Warm up
         with torch.no_grad():
             for batch_idx, (inputs, targets) in enumerate(dataloader):
-                inputs, targets = inputs.to(device), targets.to(device)
+                inputs, targets = inputs.cuda(), targets.cuda()
                 _ = self.model(inputs)
                 if batch_idx == 999:
                     break
@@ -1205,7 +1196,7 @@ class HessianPruner:
         start = time.time()
         with torch.no_grad():
             for batch_idx, (inputs, targets) in enumerate(dataloader):
-                inputs, targets = inputs.to(device), targets.to(device)
+                inputs, targets = inputs.cuda(), targets.cuda()
                 _ = self.model(inputs)
                 if batch_idx == 999:
                     break
@@ -1217,7 +1208,7 @@ class HessianPruner:
 # =====================================================
 # For Hutchinson's Method
 # =====================================================
-def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=False, trace_FP16=True, device=torch.device("cuda:0")):
+def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=False, trace_FP16=True):
     """
     Compute the trace of hessian using Hutchinson's method
     This approach requires computing only the application of the Hessian to a random input vector
@@ -1241,10 +1232,10 @@ def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=Fals
 
     # Get data to CUDA if possible
     inputs, targets = data
-    inputs, targets = inputs.to(device), targets.to(device)
+    inputs, targets = inputs.cuda(), targets.cuda()
 
     # Forward pass in FP32 or FP16
-    start_timer(device)
+    start_timer()
     with torch.autocast(device_type='cuda', dtype=torch.float16, enabled=trace_FP16):
         outputs = model(inputs)  # output is float16 because conv and linear layers autocast to float16
         loss = criterion(outputs, targets)  # loss is float32 because crossentropy layers autocast to float32
@@ -1255,13 +1246,13 @@ def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=Fals
             continue
         params.append(param)
 
-    # gradsH = []
     if trace_FP16:
         gradsH = torch.autograd.grad(scaler.scale(loss), params, create_graph=True)
 
         # Unscale 1st order gradients using ordinary division
         inv_scale = 1. / scaler.get_scale()
         gradsH = [gradient_tensor * inv_scale for gradient_tensor in gradsH]
+
     else:
         # Backward pass in FP32
         gradsH = torch.autograd.grad(loss, params, create_graph=True)
@@ -1283,13 +1274,14 @@ def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=Fals
             scaler.update(scaler.get_scale() / 2 ** 8)  # Value was tuned by hand manually to avoid NaN/infs from occuring
 
             # Sampling a random vector from the Rademacher Distribution
-            v = [torch.randint_like(p, high=2, device=device).float() * 2 - 1 for p in params]
+            v = [torch.randint_like(p, high=2, device='cuda').float() * 2 - 1 for p in params]
 
             # Calculate 2nd order gradients in FP16
             Hv = hessian_vector_product(scaler.scale(gradsH), params, v, stop_criterion=(i == (n_v - 1)))
+
         else:
             # Sampling a random vector from the Rademacher Distribution
-            v = [torch.randint_like(p, high=2, device=device).float() * 2 - 1 for p in params]
+            v = [torch.randint_like(p, high=2, device='cuda').float() * 2 - 1 for p in params]
 
             # Calculate 2nd order gradients in FP32
             Hv = hessian_vector_product(gradsH, params, v, stop_criterion=(i == (n_v - 1)))
@@ -1302,7 +1294,7 @@ def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=Fals
                 for layer_i in range(len(Hv)):
                     for channel_i in range(Hv[layer_i].size(0)):
                         trace_vhv[layer_i][channel_i].append(Hv[layer_i][channel_i].flatten().dot
-                                                             (v[layer_i][channel_i].flatten()).item())
+                        (v[layer_i][channel_i].flatten()).item())
             elif layerwise:
                 for Hv_i in range(len(Hv)):
                     trace_vhv[Hv_i].append(Hv[Hv_i].flatten().dot(v[Hv_i].flatten()).item())
@@ -1311,9 +1303,9 @@ def get_trace_hut(model, data, criterion, n_v, channelwise=False, layerwise=Fals
     bar.finish()
 
     if trace_FP16:
-        end_timer_and_print("Mixed Precision Trace Estimator:", device)
+        end_timer_and_print("Mixed Precision Trace Estimator:")
     else:
-        end_timer_and_print("Default Precision Trace Estimator:", device)
+        end_timer_and_print("Default Precision Trace Estimator:")
 
     return trace_vhv
 
@@ -1528,21 +1520,20 @@ def main(args):
     global BEST_ACC
 
     cudnn.benchmark = True
-    device = torch.device(args.device)
 
     # Initialize model architecture
     net = get_network(network=args.network, depth=args.depth, dataset=args.dataset,
-                      widening_factor=args.widening_factor, device=device)
+                      widening_factor=args.widening_factor)
     print(summary(net, torch.zeros(1, 3, 32, 32), show_input=True, show_hierarchical=False))
 
     # Loading pre-trained model from checkpoint
     print("Loading checkpoint...")
-    checkpoint = torch.load(args.load_checkpoint, map_location=device)
+    checkpoint = torch.load(args.load_checkpoint, map_location=args.device)
     print("Acc: %.2f%%, Epoch: %d, Loss: %.4f\n" % (checkpoint['acc'], checkpoint['epoch'], checkpoint['loss']))
     state_dict = checkpoint['net']
     net.load_state_dict(state_dict)
     total_parameters = count_parameters(net)
-    net = net.to(device)
+    net = net.cuda()
 
     # Initialize data loaders
     trainloader, testloader = get_dataloader(dataset=args.dataset, train_batch_size=args.batch_size,
@@ -1582,12 +1573,12 @@ def main(args):
     total_flops = 0
     # Calculate FLOPS before pruning
     if args.dataset == 'cifar10' or 'cifar100':
-        total_flops = compute_model_param_flops(pruner.model, 32, device=device)
+        total_flops = compute_model_param_flops(pruner.model, 32)
     elif args.dataset == 'imagenet':
-        total_flops = compute_model_param_flops(pruner.model, 224, device=device)
+        total_flops = compute_model_param_flops(pruner.model, 224)
 
     # Conduct pruning
-    _ = pruner.make_pruned_model(hess_data, criterion, args.n_v, args.trace_directory, args.network, args.trace_FP16, device)
+    _ = pruner.make_pruned_model(hess_data, criterion, args.n_v, args.trace_directory, args.network, args.trace_FP16)
 
     # Track the compression ratio
     compression_ratio, pruned_numel = compute_ratio(pruner.model, total_parameters)
@@ -1596,17 +1587,17 @@ def main(args):
     pruned_flops = 0
     # Calculate FLOPS after pruning
     if args.dataset == 'cifar10' or 'cifar100':
-        pruned_flops = compute_model_param_flops(pruner.model, 32, device=device)
+        pruned_flops = compute_model_param_flops(pruner.model, 32)
     elif args.dataset == 'imagenet':
-        pruned_flops = compute_model_param_flops(pruner.model, 224, device=device)
+        pruned_flops = compute_model_param_flops(pruner.model, 224)
 
     print("Remained flops: %.2f%%" % (pruned_flops / total_flops * 100))
 
     # Start finetuning
     start_epoch = 0
     for epoch in range(start_epoch, args.epochs):
-        pruner.finetune_model(epoch, criterion, trainloader, device, args.finetune_FP16)
-        pruner.test_model(epoch, criterion, testloader, device, args.test_FP16)
+        pruner.finetune_model(epoch, criterion, trainloader, args.finetune_FP16)
+        pruner.test_model(epoch, criterion, testloader, args.test_FP16, args.log_directory)
 
     # Print model size and best accuracy
     print("%.2f MB" % (os.path.getsize(args.log_directory) / 1e6))
@@ -1619,10 +1610,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--dataset', default="cifar10", type=str)
     parser.add_argument('--network', default="resnet", type=str)
-    parser.add_argument('--depth', default=56, type=int)
+    parser.add_argument('--depth', default=32, type=int)
     parser.add_argument('--widening_factor', default=1, type=int)
 
-    parser.add_argument('--epochs', default=200, type=int)
+    parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--learning_rate', default=0.0512, type=float)
     parser.add_argument('--weight_decay', default=0.0005, type=float)
     parser.add_argument('--momentum', default=0.9, type=float)
@@ -1634,7 +1625,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--n_v', default=300, type=int)
     parser.add_argument('--hessian_batch_size', default=512, type=int)
-    parser.add_argument('--prune_ratio', default=0.80402, type=float)
+    parser.add_argument('--prune_ratio', default=0.77214, type=float)
     parser.add_argument('--prune_ratio_limit', default=0.95, type=float)
     parser.add_argument('--batch_averaged', default=True, type=bool)
     parser.add_argument('--use_patch', default=False, type=bool)
@@ -1642,11 +1633,11 @@ if __name__ == "__main__":
     parser.add_argument('--fix_rotation', default=False, type=bool)
     parser.add_argument('--hessian_mode', default="trace", type=str)
     parser.add_argument('--use_decompose', default=False, type=bool)
-    parser.add_argument('--trace_FP16', default=True, type=bool)
+    parser.add_argument('--trace_FP16', default=False, type=bool)
 
-    parser.add_argument('--load_checkpoint', default="cifar10_result/resnet_56_best_1.pth.tar", type=str)
-    parser.add_argument('--log_directory', default="HAP_cifar10_result/resnet_56_pruned_FP16_trace_1.pth.tar", type=str)
-    parser.add_argument('--trace_directory', default="HAP_cifar10_result/resnet_56_tract_FP16_trace_1.npy", type=str)
+    parser.add_argument('--load_checkpoint', default="cifar10_result//resnet_32_best.pth.tar", type=str)
+    parser.add_argument('--log_directory', default="HAP_cifar10_result/resnet_32_pruned.pth.tar", type=str)
+    parser.add_argument('--trace_directory', default="HAP_cifar10_result/resnet_32_pruned.npy", type=str)
 
     parser.add_argument('--num_workers', default=1, type=int)
     parser.add_argument('--device', default="cuda:0", type=str)
