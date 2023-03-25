@@ -7,7 +7,7 @@ HAP is an advanced structured pruning library written for PyTorch. HAP prunes ch
 
 - Create and import the conda environment
    ```
-   conda env create -n HAP_env --file environment.yml
+   conda env create --file environment.yml
 
 - **To install HAP** and develop locally:
 
