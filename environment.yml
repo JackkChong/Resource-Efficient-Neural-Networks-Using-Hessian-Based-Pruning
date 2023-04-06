@@ -1,6 +1,7 @@
 name: pytorch_env
 channels:
   - pytorch
+  - conda-forge
   - defaults
 dependencies:
   - anyio=3.5.0=py39haa95532_0
@@ -16,8 +17,8 @@ dependencies:
   - brotli=1.0.9=h2bbff1b_7
   - brotli-bin=1.0.9=h2bbff1b_7
   - brotlipy=0.7.0=py39h2bbff1b_1003
-  - ca-certificates=2023.01.10=haa95532_0
-  - certifi=2022.12.7=py39haa95532_0
+  - ca-certificates=2022.12.7=h5b45459_0
+  - certifi=2022.12.7=pyhd8ed1ab_0
   - cffi=1.15.1=py39h2bbff1b_3
   - charset-normalizer=2.0.4=pyhd3eb1b0_0
   - colorama=0.4.6=py39haa95532_0
@@ -144,6 +145,7 @@ dependencies:
   - tk=8.6.12=h2bbff1b_0
   - toml=0.10.2=pyhd3eb1b0_0
   - torchaudio=0.11.0=py39_cu113
+  - torchinfo=1.7.2=pyhd8ed1ab_0
   - torchvision=0.13.1=cpu_py39h378ed51_0
   - tornado=6.2=py39h2bbff1b_0
   - tqdm=4.64.1=py39haa95532_0
