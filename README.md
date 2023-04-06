@@ -49,4 +49,4 @@ HAP is an advanced structured pruning library written for PyTorch. HAP prunes ch
 
 ## License
 
-This framework is released under the [MIT license](https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using-Hessian-Based-Pruning/blob/main/LICENSE).
+This framework is released under the [MIT license](https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using-Hessian-Based-Pruning/blob/master/LICENSE.txt).
