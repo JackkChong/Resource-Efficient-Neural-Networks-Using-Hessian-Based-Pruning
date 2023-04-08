@@ -163,10 +163,10 @@ def main(args):
 
 if __name__ == "__main__":
     # Fetch args
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Train a model from scratch.")
 
-    parser.add_argument('--dataset', default="cifar10", type=str)
-    parser.add_argument('--network', default="resnet", type=str)
+    parser.add_argument('--dataset', default="cifar10", type=str, choices=["cifar10", "cifar100"])
+    parser.add_argument('--network', default="resnet", type=str, choices=["resnet", "wideresnet"])
     parser.add_argument('--depth', default=32, type=int)
     parser.add_argument('--widening_factor', default=1, type=int)
 
@@ -178,8 +178,8 @@ if __name__ == "__main__":
     parser.add_argument('--nesterov', default=True, type=bool)
     parser.add_argument('--smoothing', default=0.0, type=float)
 
-    parser.add_argument('--train_FP16', default=False, type=bool)
-    parser.add_argument('--test_FP16', default=False, type=bool)
+    parser.add_argument('--train_FP16', default=True, type=bool)
+    parser.add_argument('--test_FP16', default=True, type=bool)
 
     parser.add_argument('--log_directory', default="results/resnet_32_best_1.pth.tar", type=str)
     parser.add_argument('--resume', '-r', default=None, type=str)

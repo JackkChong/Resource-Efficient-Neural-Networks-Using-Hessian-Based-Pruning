@@ -18,18 +18,15 @@ from prune_utils.dependencies import get_layer_dependencies
 class HessianPruner:
 
     def __init__(self, model, optimizer, lr_scheduler, prune_ratio,
-                 prune_ratio_limit, batch_averaged, use_patch, fix_layers,
-                 fix_rotation, hessian_mode, use_decompose):
+                 prune_ratio_limit, fix_layers,
+                hessian_mode, use_decompose):
 
         self.model = model
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.prune_ratio = prune_ratio
         self.prune_ratio_limit = prune_ratio_limit
-        self.batch_averaged = batch_averaged
-        self.use_patch = use_patch
         self.fix_layers = fix_layers
-        self.fix_rotation = fix_rotation
         self.hessian_mode = hessian_mode
         self.use_decompose = use_decompose
         self.known_modules = {'Linear', 'Conv2d'}

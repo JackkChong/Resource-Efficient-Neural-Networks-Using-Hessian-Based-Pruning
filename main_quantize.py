@@ -221,10 +221,10 @@ def main(args):
 
 if __name__ == "__main__":
     # Fetch args
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Conduct quantization aware training for a pre-trained / pruned model.")
 
-    parser.add_argument('--dataset', default="cifar10", type=str)
-    parser.add_argument('--network', default="resnet", type=str)
+    parser.add_argument('--dataset', default="cifar10", type=str, choices=["cifar10", "cifar100"])
+    parser.add_argument('--network', default="resnet", type=str, choices=["resnet", "wideresnet"])
     parser.add_argument('--from_HAP', default=True, type=bool)
     parser.add_argument('--depth', default=32, type=int)
     parser.add_argument('--widening_factor', default=1, type=int)
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument('--momentum', default=0.9, type=float)
     parser.add_argument('--batch_size', default=128, type=int)
 
-    parser.add_argument('--quant_scheme', default="uniform8", type=str)
+    parser.add_argument('--quant_scheme', default="uniform8", type=str, choices=["uniform8", "uniform4"])
     parser.add_argument('--bias_bit', default=32, type=int)
     parser.add_argument('--channel_wise', default=True, type=bool)
     parser.add_argument('--act_percentile', default=0, type=float)

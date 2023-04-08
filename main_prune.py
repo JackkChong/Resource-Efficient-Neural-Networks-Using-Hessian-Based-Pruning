@@ -65,8 +65,8 @@ def main(args):
     criterion = nn.CrossEntropyLoss()
 
     # Initialize pruner
-    pruner = HessianPruner(net, optimizer, lr_scheduler, args.prune_ratio, args.prune_ratio_limit, args.batch_averaged,
-                           args.use_patch, args.fix_layers, args.fix_rotation, args.hessian_mode, args.use_decompose)
+    pruner = HessianPruner(net, optimizer, lr_scheduler, args.prune_ratio, args.prune_ratio_limit,
+                           args.fix_layers, args.hessian_mode, args.use_decompose)
 
     # Conduct pruning
     _ = pruner.make_pruned_model(hess_data, criterion, args.n_v, args.trace_directory, args.network, args.trace_FP16)
@@ -96,10 +96,10 @@ def main(args):
 
 if __name__ == "__main__":
     # Fetch args
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Prune and finetune a pre-trained model.")
 
-    parser.add_argument('--dataset', default="cifar10", type=str)
-    parser.add_argument('--network', default="resnet", type=str)
+    parser.add_argument('--dataset', default="cifar10", type=str, choices=["cifar10", "cifar100"])
+    parser.add_argument('--network', default="resnet", type=str, choices=["resnet", "wideresnet"])
     parser.add_argument('--depth', default=32, type=int)
     parser.add_argument('--widening_factor', default=1, type=int)
 
@@ -115,15 +115,12 @@ if __name__ == "__main__":
 
     parser.add_argument('--n_v', default=300, type=int)
     parser.add_argument('--hessian_batch_size', default=512, type=int)
-    parser.add_argument('--prune_ratio', default=0.77214, type=float)
+    parser.add_argument('--prune_ratio', default=0.75214, type=float)
     parser.add_argument('--prune_ratio_limit', default=0.95, type=float)
-    parser.add_argument('--batch_averaged', default=True, type=bool)
-    parser.add_argument('--use_patch', default=False, type=bool)
     parser.add_argument('--fix_layers', default=0, type=int)
-    parser.add_argument('--fix_rotation', default=False, type=bool)
-    parser.add_argument('--hessian_mode', default="trace", type=str)
+    parser.add_argument('--hessian_mode', default="trace", type=str, choices=["trace"])
     parser.add_argument('--use_decompose', default=False, type=bool)
-    parser.add_argument('--trace_FP16', default=False, type=bool)
+    parser.add_argument('--trace_FP16', default=True, type=bool)
 
     parser.add_argument('--load_checkpoint', default="results/resnet_32_best_1.pth.tar", type=str)
     parser.add_argument('--log_directory', default="results/resnet_32_pruned_best_1.pth.tar", type=str)
