@@ -178,8 +178,8 @@ if __name__ == "__main__":
     parser.add_argument('--nesterov', default=True, type=bool)
     parser.add_argument('--smoothing', default=0.0, type=float)
 
-    parser.add_argument('--train_FP16', default=True, type=bool)
-    parser.add_argument('--test_FP16', default=True, type=bool)
+    parser.add_argument('--train_FP16', default=False, type=bool)
+    parser.add_argument('--test_FP16', default=False, type=bool)
 
     parser.add_argument('--log_directory', default="results/resnet_32_best_1.pth.tar", type=str)
     parser.add_argument('--resume', '-r', default=None, type=str)
