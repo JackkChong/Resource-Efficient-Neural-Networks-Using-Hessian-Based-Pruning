@@ -138,6 +138,8 @@ class HessianPruner:
             valid_prune_ratio = (next_idx+1)/len(all_importances)
             print("%.5f for %d" % (valid_prune_ratio, next_idx))
         print("\n")
+        print("Your current prune ratio is %.5f" % ((idx + 1)/len(all_importances)))
+        print("\n")
         for i in range(3):
             next_idx = idx - (i + 1)
             valid_prune_ratio = (next_idx+1)/len(all_importances)
