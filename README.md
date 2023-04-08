@@ -5,15 +5,15 @@ HAP is an advanced structured pruning library written for PyTorch. HAP prunes ch
 
 ## Installation using Anaconda
 
-- Create and import the conda environment
-   ```
-   conda env create --file environment.yml
-   ```
-
 - **To install HAP** and develop locally:
 
    ```
    git clone https://github.com/JackkChong/Resource-Efficient-Neural-Networks-Using-Hessian-Based-Pruning
+   ```
+
+- Create and import the conda environment
+   ```
+   conda env create --file environment.yml
    ```
 
 ## Quick Start
