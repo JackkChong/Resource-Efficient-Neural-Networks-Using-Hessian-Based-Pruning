@@ -189,7 +189,7 @@ if __name__ == "__main__":
     parser.add_argument('--train_FP16', default=False, type=bool)
     parser.add_argument('--test_FP16', default=False, type=bool)
 
-    parser.add_argument('--log_directory', default="results/resnet_32_best.pth.tar", type=str)
+    parser.add_argument('--log_directory', default="results/resnet_32_best_1.pth.tar", type=str)
     parser.add_argument('--resume', '-r', default=None, type=str)
 
     parser.add_argument('--num_workers', default=1, type=int)
