@@ -1,6 +1,8 @@
 # Resource Efficient Neural Networks through Hessian Based Pruning
 
-HAP is an advanced structured pruning library written for PyTorch. HAP prunes channels based on their second-order sensitivity. Channels are sorted based on this metric, and only insensitive channels are pruned.
+HAP is an advanced structured pruning library written by the authors of [1] for PyTorch. HAP prunes channels based on their second-order sensitivity. Channels are sorted based on this metric, and only insensitive channels are pruned.
+
+In this repository, we propose a modified approach for HAP to calculate the relative Hessian trace using FP16 instead of FP32. This has been shown to be faster and more GPU memory efficient than the traditional FP32 approach.
 
 
 ## Installation using Anaconda
@@ -40,11 +42,10 @@ HAP is an advanced structured pruning library written for PyTorch. HAP prunes ch
    python main_quantize.py --learning_rate 0.0001 --weight_decay 0.0001 --dataset cifar10 --epoch 30 --from_HAP True
    ```
    
-## Related Work
+## References
 
-- [Hessian-Aware Pruning and Optimal Neural Implant](https://arxiv.org/abs/2101.08940)
-- [HAWQ-V3: Dyadic Neural Network Quantization](https://arxiv.org/abs/2011.10680)
-
+- [1] Shixing Yu, Zhewei Yao, Amir Gholami, Zhen Dong, Michael W. Ma-honey, and Kurt Keutzer. [Hessian-Aware Pruning and Optimal Neural Implant](https://arxiv.org/abs/2101.08940) CoRR, abs/2101.08940, 2021.
+- [2] Zhewei Yao, Zhen Dong, Zhangcheng Zheng, Amir Gholami, Jiali Yu, Eric Tan, Leyuan Wang, Qijing Huang, Yida Wang, Michael W. Mahoney, and Kurt Keutzer. [HAWQ-V3: Dyadic Neural Network Quantization](https://arxiv.org/abs/2011.10680) CoRR, abs/2011.10680, 2020.
 
 
 ## License
